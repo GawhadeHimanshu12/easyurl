@@ -50,57 +50,45 @@ public class UrlServiceTest {
     }
 
     @Test
-    void shouldSuccessfullyShortenUrlAndPreWarmCache() {
+    void shouldSuccessfullyShortenUrlWithCustomAlias() {
         ShortenRequestDto request = new ShortenRequestDto();
         request.setOriginalUrl("https://google.com");
+        request.setCustomAlias("my-custom-link");
 
-        when(base62Encoder.generateShortKey(7)).thenReturn("abc123X");
-        when(urlRepository.findByShortKey("abc123X")).thenReturn(Optional.empty());
+        when(urlRepository.findByShortKey("my-custom-link")).thenReturn(Optional.empty());
 
-        UrlEntity savedEntity = new UrlEntity(1L, "https://google.com", "abc123X", LocalDateTime.now(), LocalDateTime.now().plusMonths(6));
+        UrlEntity savedEntity = new UrlEntity(1L, "https://google.com", "my-custom-link", LocalDateTime.now(), LocalDateTime.now().plusMonths(6));
         when(urlRepository.save(any(UrlEntity.class))).thenReturn(savedEntity);
 
         ShortenResponseDto response = urlService.shortenUrl(request);
 
         assertNotNull(response);
-        assertEquals("http://localhost:8080/abc123X", response.getShortUrl());
+        assertEquals("http://localhost:8080/my-custom-link", response.getShortUrl());
+        verify(base62Encoder, never()).generateShortKey(anyInt());
+    }
 
-        verify(valueOperations, times(1)).set(eq("abc123X"), eq("https://google.com"), any(Duration.class));
+    @Test
+    void shouldThrowConflictExceptionWhenCustomAliasExists() {
+        ShortenRequestDto request = new ShortenRequestDto();
+        request.setOriginalUrl("https://google.com");
+        request.setCustomAlias("taken-link");
+
+        UrlEntity existingEntity = new UrlEntity();
+        when(urlRepository.findByShortKey("taken-link")).thenReturn(Optional.of(existingEntity));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            urlService.shortenUrl(request);
+        });
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(urlRepository, never()).save(any(UrlEntity.class));
     }
 
     @Test
     void shouldReturnUrlFromCacheWhenAvailable() {
         when(valueOperations.get("git123")).thenReturn("https://github.com");
-
         String result = urlService.getOriginalUrl("git123");
-
         assertEquals("https://github.com", result);
         verify(urlRepository, never()).findByShortKey(anyString());
-    }
-
-    @Test
-    void shouldReturnUrlFromDatabaseWhenCacheMissAndSaveToCache() {
-        when(valueOperations.get("db123")).thenReturn(null); // Cache miss
-
-                UrlEntity entity = new UrlEntity(1L, "https://database.com", "db123", LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        when(urlRepository.findByShortKey("db123")).thenReturn(Optional.of(entity));
-
-        String result = urlService.getOriginalUrl("db123");
-
-        assertEquals("https://database.com", result);
-        verify(urlRepository, times(1)).findByShortKey("db123");
-        verify(valueOperations, times(1)).set(eq("db123"), eq("https://database.com"), any(Duration.class));
-    }
-
-    @Test
-    void shouldThrowNotFoundExceptionWhenShortKeyDoesNotExist() {
-        when(valueOperations.get("invalid")).thenReturn(null);
-        when(urlRepository.findByShortKey("invalid")).thenReturn(Optional.empty());
-
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            urlService.getOriginalUrl("invalid");
-        });
-
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
 }

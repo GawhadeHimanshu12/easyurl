@@ -1,0 +1,18 @@
+### Custom Alias
+POST http://localhost:8080/api/v1/urls/shorten
+Content-Type: application/json
+
+{
+  "originalUrl": "https://www.linkedin.com/in/himanshugawhade12",
+  "customAlias": "my-resume",
+  "expiresAt": "2027-12-31T23:59:59"
+}
+
+### 2. Try to steal the alias we just created
+POST http://localhost:8080/api/v1/urls/shorten
+Content-Type: application/json
+
+{
+  "originalUrl": "https://www.evil-hacker.com",
+  "customAlias": "my-resume"
+}
