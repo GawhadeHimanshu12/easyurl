@@ -40,4 +40,10 @@ public class UrlController {
     public ResponseEntity<List<UrlStatsResponseDto>> getMyUrls() {
         return ResponseEntity.ok(urlService.getMyUrls());
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUrl(@PathVariable Long id) {
+        urlService.deleteUrl(id);
+        return ResponseEntity.noContent().build();
+    }
 }

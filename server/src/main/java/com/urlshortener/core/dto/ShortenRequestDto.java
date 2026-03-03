@@ -15,7 +15,7 @@ public class ShortenRequestDto {
     @URL(message = "Invalid URL format. Must include http:// or https://")
     private String originalUrl;
 
-    @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Alias can only contain letters, numbers, hyphens, and underscores")
+    @Pattern(regexp = "^[a-zA-Z0-9-_]*$", message = "Alias can only contain letters, numbers, hyphens, and underscores")
     private String customAlias;
 
     @Future(message = "Expiration date must be in the future")

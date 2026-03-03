@@ -92,7 +92,6 @@ public class OAuth2LoginSuccessHandler extends SimpleUrlAuthenticationSuccessHan
 
         response.addCookie(jwtCookie);
 
-        // 4. Redirect to Frontend (We redirect to our API home for testing)
-        getRedirectStrategy().sendRedirect(request, response, "/api/v1/urls/my-urls");
+        getRedirectStrategy().sendRedirect(request, response, "http://localhost:5173/dashboard");
     }
 }

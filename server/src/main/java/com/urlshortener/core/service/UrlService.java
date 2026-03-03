@@ -135,4 +135,16 @@ public class UrlService {
                 .expiresAt(entity.getExpiresAt())
                 .build();
     }
+
+    @Transactional
+    public void deleteUrl(Long id) {
+        UrlEntity url = urlRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
+        if (!url.getUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your URL");
+        }
+        redisTemplate.delete(url.getShortKey());
+        urlRepository.delete(url);
+    }
 }

@@ -21,4 +21,9 @@ public class AdminController {
     public ResponseEntity<List<UserEntity>> getAllUsers() {
         return ResponseEntity.ok(userRepository.findAll());
     }
+
+    @GetMapping("/urls")
+    public ResponseEntity<List<com.urlshortener.core.entity.UrlEntity>> getAllUrls(com.urlshortener.core.repository.UrlRepository urlRepository) {
+        return ResponseEntity.ok(urlRepository.findAll());
+    }
 }
