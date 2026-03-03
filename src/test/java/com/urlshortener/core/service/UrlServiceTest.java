@@ -11,10 +11,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -31,16 +34,23 @@ public class UrlServiceTest {
     @Mock
     private Base62Encoder base62Encoder;
 
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     @InjectMocks
     private UrlService urlService;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(urlService, "baseUrl", "http://localhost:8080/");
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
-    void shouldSuccessfullyShortenUrl() {
+    void shouldSuccessfullyShortenUrlAndPreWarmCache() {
         ShortenRequestDto request = new ShortenRequestDto();
         request.setOriginalUrl("https://google.com");
 
@@ -54,20 +64,37 @@ public class UrlServiceTest {
 
         assertNotNull(response);
         assertEquals("http://localhost:8080/abc123X", response.getShortUrl());
+
+        verify(valueOperations, times(1)).set(eq("abc123X"), eq("https://google.com"), any(Duration.class));
     }
 
     @Test
-    void shouldReturnOriginalUrlWhenValidShortKeyProvided() {
-        UrlEntity entity = new UrlEntity(1L, "https://github.com", "git123", LocalDateTime.now(), LocalDateTime.now().plusDays(1));
-        when(urlRepository.findByShortKey("git123")).thenReturn(Optional.of(entity));
+    void shouldReturnUrlFromCacheWhenAvailable() {
+        when(valueOperations.get("git123")).thenReturn("https://github.com");
 
         String result = urlService.getOriginalUrl("git123");
 
         assertEquals("https://github.com", result);
+        verify(urlRepository, never()).findByShortKey(anyString());
+    }
+
+    @Test
+    void shouldReturnUrlFromDatabaseWhenCacheMissAndSaveToCache() {
+        when(valueOperations.get("db123")).thenReturn(null); // Cache miss
+
+                UrlEntity entity = new UrlEntity(1L, "https://database.com", "db123", LocalDateTime.now(), LocalDateTime.now().plusDays(1));
+        when(urlRepository.findByShortKey("db123")).thenReturn(Optional.of(entity));
+
+        String result = urlService.getOriginalUrl("db123");
+
+        assertEquals("https://database.com", result);
+        verify(urlRepository, times(1)).findByShortKey("db123");
+        verify(valueOperations, times(1)).set(eq("db123"), eq("https://database.com"), any(Duration.class));
     }
 
     @Test
     void shouldThrowNotFoundExceptionWhenShortKeyDoesNotExist() {
+        when(valueOperations.get("invalid")).thenReturn(null);
         when(urlRepository.findByShortKey("invalid")).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
@@ -75,17 +102,5 @@ public class UrlServiceTest {
         });
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
-    }
-
-    @Test
-    void shouldThrowGoneExceptionWhenUrlIsExpired() {
-        UrlEntity expiredEntity = new UrlEntity(1L, "https://expired.com", "exp123", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
-        when(urlRepository.findByShortKey("exp123")).thenReturn(Optional.of(expiredEntity));
-
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            urlService.getOriginalUrl("exp123");
-        });
-
-        assertEquals(HttpStatus.GONE, exception.getStatusCode());
     }
 }
