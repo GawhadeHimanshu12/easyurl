@@ -1,6 +1,7 @@
 package com.urlshortener.core.controller;
 
 import com.urlshortener.core.entity.UserEntity;
+import com.urlshortener.core.repository.UrlRepository;
 import com.urlshortener.core.repository.UserRepository;
 import com.urlshortener.core.security.CustomUserDetails;
 import jakarta.servlet.http.Cookie;
@@ -11,10 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -22,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final UserRepository userRepository;
+    private final UrlRepository urlRepository;
 
     @Value("${app.jwt.cookie-name}")
     private String cookieName;
@@ -34,6 +34,21 @@ public class AuthController {
         }
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
         return ResponseEntity.ok(userRepository.findById(userDetails.getId()).orElseThrow());
+    }
+
+    @PostMapping("/claim")
+    @Transactional
+    public ResponseEntity<Void> claimAnonymousUrls(@RequestHeader(value = "X-Anonymous-Session", required = false) String anonId) {
+        if (anonId != null) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof CustomUserDetails userDetails) {
+                UserEntity user = userRepository.findById(userDetails.getId()).orElse(null);
+                if (user != null) {
+                    urlRepository.claimAnonymousUrls(user, anonId);
+                }
+            }
+        }
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/logout")

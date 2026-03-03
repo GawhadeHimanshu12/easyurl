@@ -2,7 +2,6 @@ package com.urlshortener.core.dto;
 
 import lombok.Builder;
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Data
@@ -13,4 +12,8 @@ public class UrlStatsResponseDto {
     private Long clickCount;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
+
+    private Long userId;
+    private String userName;
+    private String userEmail;
 }

@@ -13,9 +13,11 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check login state on load
     api.get('/auth/me')
-      .then(res => setUser(res.data))
+      .then(res => {
+          setUser(res.data);
+          api.post('/auth/claim').catch(console.error);
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);

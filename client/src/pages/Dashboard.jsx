@@ -13,12 +13,16 @@ export default function Dashboard() {
     };
 
     const handleDelete = async (shortUrl) => {
-        if (!window.confirm("Delete this URL?")) return;
+        if (!window.confirm("Are you sure you want to delete this URL?")) return;
+        
         const key = shortUrl.split('/').pop();
+        
         try {
-            alert("Backend requires ID for deletion. Delete triggered for key: " + key);
+            await api.delete(`/urls/${key}`);
+            setUrls(urls.filter(u => u.shortUrl !== shortUrl));
         } catch (e) {
-            console.error(e);
+            console.error("Failed to delete", e);
+            alert("Failed to delete URL");
         }
     };
 

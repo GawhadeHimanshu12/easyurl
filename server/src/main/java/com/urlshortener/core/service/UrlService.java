@@ -66,7 +66,6 @@ public class UrlService {
                 .shortKey(shortKey)
                 .expiresAt(expiryDate);
 
-        // Security check: Who is creating this?
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof CustomUserDetails userDetails) {
             UserEntity user = userRepository.findById(userDetails.getId()).orElse(null);
@@ -126,6 +125,25 @@ public class UrlService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public void deleteUrl(String shortKey) {
+        UrlEntity url = urlRepository.findByShortKey(shortKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+
+        // Security check: Ensure the logged-in user owns this URL
+        if (url.getUser() == null || !url.getUser().getId().equals(userDetails.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not own this URL");
+        }
+
+        redisTemplate.delete(shortKey);
+        urlRepository.delete(url);
+    }
+
     private UrlStatsResponseDto mapToStatsDto(UrlEntity entity) {
         return UrlStatsResponseDto.builder()
                 .originalUrl(entity.getOriginalUrl())
@@ -133,18 +151,9 @@ public class UrlService {
                 .clickCount(entity.getClickCount())
                 .createdAt(entity.getCreatedAt())
                 .expiresAt(entity.getExpiresAt())
+                .userId(entity.getUser() != null ? entity.getUser().getId() : null)
+                .userName(entity.getUser() != null ? entity.getUser().getName() : null)
+                .userEmail(entity.getUser() != null ? entity.getUser().getEmail() : null)
                 .build();
-    }
-
-    @Transactional
-    public void deleteUrl(Long id) {
-        UrlEntity url = urlRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        CustomUserDetails user = (CustomUserDetails) auth.getPrincipal();
-        if (!url.getUser().getId().equals(user.getId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your URL");
-        }
-        redisTemplate.delete(url.getShortKey());
-        urlRepository.delete(url);
     }
 }
