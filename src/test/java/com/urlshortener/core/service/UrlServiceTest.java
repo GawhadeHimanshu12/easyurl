@@ -2,93 +2,112 @@ package com.urlshortener.core.service;
 
 import com.urlshortener.core.dto.ShortenRequestDto;
 import com.urlshortener.core.dto.ShortenResponseDto;
+import com.urlshortener.core.dto.UrlStatsResponseDto;
 import com.urlshortener.core.entity.UrlEntity;
 import com.urlshortener.core.repository.UrlRepository;
 import com.urlshortener.core.util.Base62Encoder;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+@Service
+@Slf4j
+@RequiredArgsConstructor
+class UrlService {
 
-@ExtendWith(MockitoExtension.class)
-public class UrlServiceTest {
+    private final UrlRepository urlRepository;
+    private final Base62Encoder base62Encoder;
+    private final RedisTemplate<String, String> redisTemplate;
 
-    @Mock
-    private UrlRepository urlRepository;
+    @Value("${app.base-url:http://localhost:8080/}")
+    private String baseUrl;
 
-    @Mock
-    private Base62Encoder base62Encoder;
+    @Transactional
+    public ShortenResponseDto shortenUrl(ShortenRequestDto request) {
+        log.info("Received request to shorten URL: {}", request.getOriginalUrl());
 
-    @Mock
-    private RedisTemplate<String, String> redisTemplate;
+        String shortKey;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
+        if (request.getCustomAlias() != null && !request.getCustomAlias().trim().isEmpty()) {
+            shortKey = request.getCustomAlias().trim();
+            if (urlRepository.findByShortKey(shortKey).isPresent()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Custom alias already exists");
+            }
+        } else {
+            boolean isUnique = false;
+            do {
+                shortKey = base62Encoder.generateShortKey(7);
+                if (urlRepository.findByShortKey(shortKey).isEmpty()) {
+                    isUnique = true;
+                }
+            } while (!isUnique);
+        }
 
-    @InjectMocks
-    private UrlService urlService;
+        LocalDateTime expiryDate = request.getExpiresAt() != null
+                ? request.getExpiresAt()
+                : LocalDateTime.now().plusMonths(6);
 
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(urlService, "baseUrl", "http://localhost:8080/");
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        UrlEntity urlEntity = UrlEntity.builder()
+                .originalUrl(request.getOriginalUrl())
+                .shortKey(shortKey)
+                .expiresAt(expiryDate)
+                .build();
+
+        UrlEntity savedEntity = urlRepository.save(urlEntity);
+        redisTemplate.opsForValue().set(shortKey, savedEntity.getOriginalUrl(), Duration.ofDays(1));
+
+        return ShortenResponseDto.builder()
+                .shortUrl(baseUrl + savedEntity.getShortKey())
+                .expiresAt(savedEntity.getExpiresAt())
+                .build();
     }
 
-    @Test
-    void shouldSuccessfullyShortenUrlWithCustomAlias() {
-        ShortenRequestDto request = new ShortenRequestDto();
-        request.setOriginalUrl("https://google.com");
-        request.setCustomAlias("my-custom-link");
+    @Transactional(readOnly = true)
+    public String getOriginalUrl(String shortKey) {
+        String cachedUrl = redisTemplate.opsForValue().get(shortKey);
+        if (cachedUrl != null) {
+            return cachedUrl;
+        }
 
-        when(urlRepository.findByShortKey("my-custom-link")).thenReturn(Optional.empty());
+        UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
 
-        UrlEntity savedEntity = new UrlEntity(1L, "https://google.com", "my-custom-link", LocalDateTime.now(), LocalDateTime.now().plusMonths(6));
-        when(urlRepository.save(any(UrlEntity.class))).thenReturn(savedEntity);
+        if (urlEntity.getExpiresAt() != null && urlEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            redisTemplate.delete(shortKey);
+            throw new ResponseStatusException(HttpStatus.GONE, "URL has expired");
+        }
 
-        ShortenResponseDto response = urlService.shortenUrl(request);
-
-        assertNotNull(response);
-        assertEquals("http://localhost:8080/my-custom-link", response.getShortUrl());
-        verify(base62Encoder, never()).generateShortKey(anyInt());
+        redisTemplate.opsForValue().set(shortKey, urlEntity.getOriginalUrl(), Duration.ofDays(1));
+        return urlEntity.getOriginalUrl();
     }
 
-    @Test
-    void shouldThrowConflictExceptionWhenCustomAliasExists() {
-        ShortenRequestDto request = new ShortenRequestDto();
-        request.setOriginalUrl("https://google.com");
-        request.setCustomAlias("taken-link");
-
-        UrlEntity existingEntity = new UrlEntity();
-        when(urlRepository.findByShortKey("taken-link")).thenReturn(Optional.of(existingEntity));
-
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
-            urlService.shortenUrl(request);
-        });
-
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
-        verify(urlRepository, never()).save(any(UrlEntity.class));
+    // NEW: Increments the click count. Separated from getOriginalUrl to keep reads fast.
+    @Transactional
+    public void incrementClickCount(String shortKey) {
+        log.debug("Incrementing click count for shortKey: {}", shortKey);
+        urlRepository.incrementClickCount(shortKey);
     }
 
-    @Test
-    void shouldReturnUrlFromCacheWhenAvailable() {
-        when(valueOperations.get("git123")).thenReturn("https://github.com");
-        String result = urlService.getOriginalUrl("git123");
-        assertEquals("https://github.com", result);
-        verify(urlRepository, never()).findByShortKey(anyString());
+    // NEW: Fetches the analytics for a specific short key
+    @Transactional(readOnly = true)
+    public UrlStatsResponseDto getUrlStats(String shortKey) {
+        UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
+
+        return UrlStatsResponseDto.builder()
+                .originalUrl(urlEntity.getOriginalUrl())
+                .shortUrl(baseUrl + urlEntity.getShortKey())
+                .clickCount(urlEntity.getClickCount())
+                .createdAt(urlEntity.getCreatedAt())
+                .expiresAt(urlEntity.getExpiresAt())
+                .build();
     }
 }

@@ -20,6 +20,8 @@ public class RedirectController {
     public ResponseEntity<Void> redirectToOriginal(@PathVariable String shortKey) {
         String originalUrl = urlService.getOriginalUrl(shortKey);
 
+        urlService.incrementClickCount(shortKey);
+
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(URI.create(originalUrl))
                 .build();

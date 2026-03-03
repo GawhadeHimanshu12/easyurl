@@ -39,4 +39,8 @@ public class UrlEntity {
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Column(name = "click_count", nullable = false)
+    @Builder.Default
+    private Long clickCount = 0L;
 }
