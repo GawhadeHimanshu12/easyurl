@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/urlshortener
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:207423111307-570mdin12fqehmojif54dp3abh64infl.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            scope: email, profile
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.urlshortener: DEBUG
+
+app:
+  base-url: http://localhost:8080/
+  jwt:
+    secret: ${JWT_SECRET:super_secret_key_for_jwt_which_must_be_long_enough_to_be_secure}
+    expiration-ms: 3600000
+    cookie-name: jwt_token
+  admin:
+    emails: ${ADMIN_EMAILS:gawhadehimanshu12@gmail.com,rohit010100@gmail.com}
+  cookie:
+    secure: false

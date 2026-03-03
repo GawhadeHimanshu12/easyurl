@@ -9,12 +9,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "urls",
-        indexes = {
-                @Index(name = "idx_short_key", columnList = "short_key", unique = true)
-        },
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "short_key")
-        }
+        indexes = { @Index(name = "idx_short_key", columnList = "short_key", unique = true) }
 )
 @Getter
 @Setter
@@ -26,6 +21,13 @@ public class UrlEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private UserEntity user;
+
+    @Column(name = "anonymous_session_id")
+    private String anonymousSessionId;
 
     @Column(name = "original_url", nullable = false, length = 2048)
     private String originalUrl;

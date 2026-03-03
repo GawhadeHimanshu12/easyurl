@@ -4,19 +4,26 @@ import com.urlshortener.core.dto.ShortenRequestDto;
 import com.urlshortener.core.dto.ShortenResponseDto;
 import com.urlshortener.core.dto.UrlStatsResponseDto;
 import com.urlshortener.core.entity.UrlEntity;
+import com.urlshortener.core.entity.UserEntity;
 import com.urlshortener.core.repository.UrlRepository;
+import com.urlshortener.core.repository.UserRepository;
+import com.urlshortener.core.security.CustomUserDetails;
 import com.urlshortener.core.util.Base62Encoder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -24,6 +31,7 @@ import java.time.LocalDateTime;
 public class UrlService {
 
     private final UrlRepository urlRepository;
+    private final UserRepository userRepository;
     private final Base62Encoder base62Encoder;
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -31,9 +39,7 @@ public class UrlService {
     private String baseUrl;
 
     @Transactional
-    public ShortenResponseDto shortenUrl(ShortenRequestDto request) {
-        log.info("Received request to shorten URL: {}", request.getOriginalUrl());
-
+    public ShortenResponseDto shortenUrl(ShortenRequestDto request, String anonId) {
         String shortKey;
 
         if (request.getCustomAlias() != null && !request.getCustomAlias().trim().isEmpty()) {
@@ -55,13 +61,21 @@ public class UrlService {
                 ? request.getExpiresAt()
                 : LocalDateTime.now().plusMonths(6);
 
-        UrlEntity urlEntity = UrlEntity.builder()
+        UrlEntity.UrlEntityBuilder builder = UrlEntity.builder()
                 .originalUrl(request.getOriginalUrl())
                 .shortKey(shortKey)
-                .expiresAt(expiryDate)
-                .build();
+                .expiresAt(expiryDate);
 
-        UrlEntity savedEntity = urlRepository.save(urlEntity);
+        // Security check: Who is creating this?
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails userDetails) {
+            UserEntity user = userRepository.findById(userDetails.getId()).orElse(null);
+            builder.user(user);
+        } else if (anonId != null) {
+            builder.anonymousSessionId(anonId);
+        }
+
+        UrlEntity savedEntity = urlRepository.save(builder.build());
         redisTemplate.opsForValue().set(shortKey, savedEntity.getOriginalUrl(), Duration.ofDays(1));
 
         return ShortenResponseDto.builder()
@@ -73,9 +87,7 @@ public class UrlService {
     @Transactional(readOnly = true)
     public String getOriginalUrl(String shortKey) {
         String cachedUrl = redisTemplate.opsForValue().get(shortKey);
-        if (cachedUrl != null) {
-            return cachedUrl;
-        }
+        if (cachedUrl != null) { return cachedUrl; }
 
         UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
@@ -91,7 +103,6 @@ public class UrlService {
 
     @Transactional
     public void incrementClickCount(String shortKey) {
-        log.debug("Incrementing click count for shortKey: {}", shortKey);
         urlRepository.incrementClickCount(shortKey);
     }
 
@@ -99,13 +110,29 @@ public class UrlService {
     public UrlStatsResponseDto getUrlStats(String shortKey) {
         UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
+        return mapToStatsDto(urlEntity);
+    }
 
+    @Transactional(readOnly = true)
+    public List<UrlStatsResponseDto> getMyUrls() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not authenticated");
+        }
+
+        UserEntity user = userRepository.findById(userDetails.getId()).orElseThrow();
+        return urlRepository.findByUser(user).stream()
+                .map(this::mapToStatsDto)
+                .collect(Collectors.toList());
+    }
+
+    private UrlStatsResponseDto mapToStatsDto(UrlEntity entity) {
         return UrlStatsResponseDto.builder()
-                .originalUrl(urlEntity.getOriginalUrl())
-                .shortUrl(baseUrl + urlEntity.getShortKey())
-                .clickCount(urlEntity.getClickCount())
-                .createdAt(urlEntity.getCreatedAt())
-                .expiresAt(urlEntity.getExpiresAt())
+                .originalUrl(entity.getOriginalUrl())
+                .shortUrl(baseUrl + entity.getShortKey())
+                .clickCount(entity.getClickCount())
+                .createdAt(entity.getCreatedAt())
+                .expiresAt(entity.getExpiresAt())
                 .build();
     }
 }
