@@ -37,7 +37,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwt != null && tokenProvider.validateToken(jwt)) {
                 Claims claims = tokenProvider.getClaimsFromJWT(jwt);
                 String email = claims.getSubject();
-                Long userId = claims.get("userId", Long.class);
+
+                Number userIdNumber = claims.get("userId", Number.class);
+                Long userId = userIdNumber != null ? userIdNumber.longValue() : null;
+
                 String role = claims.get("role", String.class);
 
                 CustomUserDetails userDetails = new CustomUserDetails(

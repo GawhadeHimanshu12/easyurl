@@ -22,7 +22,6 @@ public class UrlController {
     @PostMapping("/shorten")
     public ResponseEntity<ShortenResponseDto> shortenUrl(
             @Valid @RequestBody ShortenRequestDto request,
-            // Header for programmatic API access, Cookie for browser pre-login flow
             @RequestHeader(value = "X-Anonymous-Session", required = false) String headerAnonId,
             @CookieValue(value = "anon_id", required = false) String cookieAnonId) {
 
@@ -41,9 +40,10 @@ public class UrlController {
         return ResponseEntity.ok(urlService.getMyUrls());
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUrl(@PathVariable Long id) {
-        urlService.deleteUrl(id);
+    // CORRECTED: Now expects a String (shortKey) instead of a Long (id)
+    @DeleteMapping("/{shortKey}")
+    public ResponseEntity<Void> deleteUrl(@PathVariable String shortKey) {
+        urlService.deleteUrl(shortKey);
         return ResponseEntity.noContent().build();
     }
 }
