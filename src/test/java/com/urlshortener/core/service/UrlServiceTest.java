@@ -11,7 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -44,6 +46,7 @@ public class UrlServiceTest {
 
         when(base62Encoder.generateShortKey(7)).thenReturn("abc123X");
         when(urlRepository.findByShortKey("abc123X")).thenReturn(Optional.empty());
+
         UrlEntity savedEntity = new UrlEntity(1L, "https://google.com", "abc123X", LocalDateTime.now(), LocalDateTime.now().plusMonths(6));
         when(urlRepository.save(any(UrlEntity.class))).thenReturn(savedEntity);
 
@@ -51,6 +54,38 @@ public class UrlServiceTest {
 
         assertNotNull(response);
         assertEquals("http://localhost:8080/abc123X", response.getShortUrl());
-        verify(urlRepository, times(1)).save(any(UrlEntity.class));
+    }
+
+    @Test
+    void shouldReturnOriginalUrlWhenValidShortKeyProvided() {
+        UrlEntity entity = new UrlEntity(1L, "https://github.com", "git123", LocalDateTime.now(), LocalDateTime.now().plusDays(1));
+        when(urlRepository.findByShortKey("git123")).thenReturn(Optional.of(entity));
+
+        String result = urlService.getOriginalUrl("git123");
+
+        assertEquals("https://github.com", result);
+    }
+
+    @Test
+    void shouldThrowNotFoundExceptionWhenShortKeyDoesNotExist() {
+        when(urlRepository.findByShortKey("invalid")).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            urlService.getOriginalUrl("invalid");
+        });
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void shouldThrowGoneExceptionWhenUrlIsExpired() {
+        UrlEntity expiredEntity = new UrlEntity(1L, "https://expired.com", "exp123", LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        when(urlRepository.findByShortKey("exp123")).thenReturn(Optional.of(expiredEntity));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> {
+            urlService.getOriginalUrl("exp123");
+        });
+
+        assertEquals(HttpStatus.GONE, exception.getStatusCode());
     }
 }

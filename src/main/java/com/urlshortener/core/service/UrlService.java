@@ -8,8 +8,10 @@ import com.urlshortener.core.util.Base62Encoder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
@@ -53,5 +55,23 @@ public class UrlService {
                 .shortUrl(baseUrl + savedEntity.getShortKey())
                 .expiresAt(savedEntity.getExpiresAt())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public String getOriginalUrl(String shortKey) {
+        log.info("Fetching original URL for shortKey: {}", shortKey);
+
+        UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
+                .orElseThrow(() -> {
+                    log.error("URL not found for shortKey: {}", shortKey);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found");
+                });
+
+        if (urlEntity.getExpiresAt() != null && urlEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Short URL {} has expired", shortKey);
+            throw new ResponseStatusException(HttpStatus.GONE, "URL has expired");
+        }
+
+        return urlEntity.getOriginalUrl();
     }
 }
