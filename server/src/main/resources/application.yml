@@ -1,11 +1,11 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/urlshortener
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/urlshortener}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -14,15 +14,16 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   data:
     redis:
-      host: localhost
-      port: 6379
+      url: ${REDIS_URL:}
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
   security:
     oauth2:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID:207423111307-570mdin12fqehmojif54dp3abh64infl.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: email, profile
 
 logging:
@@ -31,7 +32,7 @@ logging:
     com.urlshortener: DEBUG
 
 app:
-  base-url: http://localhost:8080/
+  base-url: ${APP_BASE_URL:http://localhost:8080/}
   jwt:
     secret: ${JWT_SECRET:super_secret_key_for_jwt_which_must_be_long_enough_to_be_secure}
     expiration-ms: 3600000
@@ -39,4 +40,4 @@ app:
   admin:
     emails: ${ADMIN_EMAILS:gawhadehimanshu12@gmail.com,rohit010100@gmail.com}
   cookie:
-    secure: false
+    secure: ${SECURE_COOKIE:false}

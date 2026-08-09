@@ -8,7 +8,7 @@ export default function Navbar() {
     const navigate = useNavigate();
 
     const handleLogin = () => {
-        window.location.href = 'http://localhost:8080/oauth2/authorization/google';
+        window.location.href = '/oauth2/authorization/google';
     };
 
     const handleLogout = async () => {
@@ -20,7 +20,7 @@ export default function Navbar() {
     return (
         <nav className="navbar">
             <div className="nav-brand">
-                <Link to="/">🔗 URL Shortener</Link>
+                <Link to="/">🔗 EasyURL</Link>
             </div>
             <div className="nav-links">
                 {user ? (

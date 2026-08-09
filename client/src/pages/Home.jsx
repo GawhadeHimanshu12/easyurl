@@ -56,7 +56,7 @@ export default function Home() {
                     <button onClick={handleCopy} className="btn-secondary">Copy</button>
                     {!user && (
                         <div className="login-prompt">
-                            ⚠️ <button onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorization/google'} className="link-btn">Login with Google</button> to save and track this URL forever!
+                            ⚠️ <button onClick={() => window.location.href = '/oauth2/authorization/google'} className="link-btn">Login with Google</button> to save and track this URL forever!
                         </div>
                     )}
                 </div>

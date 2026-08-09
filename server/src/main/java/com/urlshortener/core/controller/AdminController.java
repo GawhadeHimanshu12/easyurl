@@ -40,8 +40,7 @@ public class AdminController {
                         .shortUrl(baseUrl + entity.getShortKey())
                         .clickCount(entity.getClickCount())
                         .createdAt(entity.getCreatedAt())
-                        .expiresAt(entity.getExpiresAt())
-                        // THE FIX: Populate full user info
+                        .expiresAt(entity.getExpiresAt())   
                         .userId(entity.getUser() != null ? entity.getUser().getId() : null)
                         .userName(entity.getUser() != null ? entity.getUser().getName() : null)
                         .userEmail(entity.getUser() != null ? entity.getUser().getEmail() : null)

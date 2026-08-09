@@ -75,7 +75,11 @@ public class UrlService {
         }
 
         UrlEntity savedEntity = urlRepository.save(builder.build());
-        redisTemplate.opsForValue().set(shortKey, savedEntity.getOriginalUrl(), Duration.ofDays(1));
+        try {
+            redisTemplate.opsForValue().set(shortKey, savedEntity.getOriginalUrl(), Duration.ofDays(1));
+        } catch (Exception e) {
+            log.warn("Redis is unavailable, skipping cache set for {}", shortKey);
+        }
 
         return ShortenResponseDto.builder()
                 .shortUrl(baseUrl + savedEntity.getShortKey())
@@ -85,18 +89,30 @@ public class UrlService {
 
     @Transactional(readOnly = true)
     public String getOriginalUrl(String shortKey) {
-        String cachedUrl = redisTemplate.opsForValue().get(shortKey);
-        if (cachedUrl != null) { return cachedUrl; }
+        try {
+            String cachedUrl = redisTemplate.opsForValue().get(shortKey);
+            if (cachedUrl != null) { return cachedUrl; }
+        } catch (Exception e) {
+            log.warn("Redis is unavailable, falling back to database for {}", shortKey);
+        }
 
         UrlEntity urlEntity = urlRepository.findByShortKey(shortKey)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "URL not found"));
 
         if (urlEntity.getExpiresAt() != null && urlEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
-            redisTemplate.delete(shortKey);
+            try {
+                redisTemplate.delete(shortKey);
+            } catch (Exception e) {
+                log.warn("Redis is unavailable, skipping cache delete for {}", shortKey);
+            }
             throw new ResponseStatusException(HttpStatus.GONE, "URL has expired");
         }
 
-        redisTemplate.opsForValue().set(shortKey, urlEntity.getOriginalUrl(), Duration.ofDays(1));
+        try {
+            redisTemplate.opsForValue().set(shortKey, urlEntity.getOriginalUrl(), Duration.ofDays(1));
+        } catch (Exception e) {
+            log.warn("Redis is unavailable, skipping cache set for {}", shortKey);
+        }
         return urlEntity.getOriginalUrl();
     }
 
@@ -140,7 +156,11 @@ public class UrlService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not own this URL");
         }
 
-        redisTemplate.delete(shortKey);
+        try {
+            redisTemplate.delete(shortKey);
+        } catch (Exception e) {
+            log.warn("Redis is unavailable, skipping cache delete for {}", shortKey);
+        }
         urlRepository.delete(url);
     }
 

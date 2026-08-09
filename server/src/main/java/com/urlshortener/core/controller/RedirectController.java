@@ -17,7 +17,7 @@ public class RedirectController {
 
     private final UrlService urlService;
 
-    private static final Set<String> RESERVED_WORDS = Set.of("login", "oauth2", "error", "api", "favicon.ico");
+    private static final Set<String> RESERVED_WORDS = Set.of("login", "oauth2", "error", "api", "favicon.ico", "dashboard", "admin", "assets", "index.html");
 
     @GetMapping("/{shortKey}")
     public ResponseEntity<Void> redirectToOriginal(@PathVariable String shortKey) {

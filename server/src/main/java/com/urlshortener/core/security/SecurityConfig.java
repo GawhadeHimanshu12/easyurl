@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(customAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/urls/shorten", "/api/v1/urls/*/stats", "/{shortKey:[a-zA-Z0-9-_]+}", "/oauth2/**", "/login/**", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/error", "/dashboard", "/admin", "/assets/**", "/*.svg", "/*.ico", "/*.png", "/api/v1/urls/shorten", "/api/v1/urls/*/stats", "/{shortKey:[a-zA-Z0-9-_]+}", "/oauth2/**", "/login/**", "/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/urls/my-urls", "/api/v1/urls/**").authenticated()
                         .anyRequest().authenticated()
