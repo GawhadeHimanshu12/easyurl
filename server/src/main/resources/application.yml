@@ -1,16 +1,24 @@
 server:
   port: ${PORT:8080}
+  tomcat:
+    threads:
+      max: 1000
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/urlshortener}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 200
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   data:
     redis:
@@ -28,8 +36,8 @@ spring:
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    com.urlshortener: DEBUG
+    org.springframework.security: WARN
+    com.urlshortener: WARN
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080/}

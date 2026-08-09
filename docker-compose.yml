@@ -5,9 +5,10 @@ services:
     env_file:
       - server/.env
     environment:
-      POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: urlshortener
+    command: -c max_connections=250
     ports:
       - "5432:5432"
     volumes:
@@ -19,6 +20,26 @@ services:
     container_name: url_shortener_redis
     ports:
       - "6379:6379"
+    restart: always
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: url_shortener_app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - server/.env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/urlshortener
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      REDIS_URL: redis://redis:6379
+      SPRING_REDIS_HOST: redis
     restart: always
 
 volumes:
