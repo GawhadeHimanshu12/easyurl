@@ -1,10 +1,10 @@
-# EasyURL 🚀
+# EasyURL 
 
 Hey there! Welcome to **EasyURL** — a clean, fast, and simple URL shortener project. 
 
 I built this to make sharing long, clunky links a breeze. It's got both a frontend (`client`) and a backend (`server`), and it's fully containerized with Docker to make running it super easy.
 
-## 📸 Sneak Peek
+## Sneak Peek
 
 Here's what the app looks like:
 
@@ -15,13 +15,13 @@ Here's what the app looks like:
   <img src="images/Screenshot%202026-08-09%20221957.png" alt="App Screenshot 4" width="45%" />
 </p>
 
-## 🛠️ What's Inside?
+## What's Inside?
 
 - **`client/`**: The frontend UI where all the magic happens for users.
 - **`server/`**: The heavy lifter backend API handling the link shrinking.
 - **Docker Ready**: You'll find a `docker-compose.yml` and `Dockerfile` to get things spun up without the headache of manual setups.
 
-## 🏃‍♂️ How to Run It
+##  How to Run It
 
 Want to try it out on your machine? The easiest way is using Docker. Just clone the repo and run:
 
