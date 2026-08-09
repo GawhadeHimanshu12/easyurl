@@ -19,7 +19,7 @@ public class RedirectController {
 
     private static final Set<String> RESERVED_WORDS = Set.of("login", "oauth2", "error", "api", "favicon.ico", "dashboard", "admin", "assets", "index.html");
 
-    @GetMapping("/{shortKey}")
+    @GetMapping("/{shortKey:[a-zA-Z0-9-_]+}")
     public ResponseEntity<Void> redirectToOriginal(@PathVariable String shortKey) {
 
         if (RESERVED_WORDS.contains(shortKey)) {
