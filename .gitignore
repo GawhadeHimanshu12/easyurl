@@ -38,3 +38,4 @@ build/
 
 server\.env
 .env
+DOCUMENTATION.md

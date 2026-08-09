@@ -21,12 +21,3 @@ Here's what the app looks like:
 - **`server/`**: The heavy lifter backend API handling the link shrinking.
 - **Docker Ready**: You'll find a `docker-compose.yml` and `Dockerfile` to get things spun up without the headache of manual setups.
 
-##  How to Run It
-
-Want to try it out on your machine? The easiest way is using Docker. Just clone the repo and run:
-
-```bash
-docker-compose up --build
-```
-
-That's pretty much it! Feel free to poke around the code and let me know if you have any cool ideas to add. Enjoy! 🎉
