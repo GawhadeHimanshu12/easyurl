@@ -2,7 +2,7 @@
 
 Hey there! Welcome to **EasyURL** — a clean, fast, and simple URL shortener project. 
 
-**Live Demo:** [Click here to try it out!](https://easyurl.tech) *(Replace with your exact .tech domain)*
+**Live Demo:** [https://easyurl.tech](https://easyurl.tech)
 
 I built this to make sharing long, clunky links a breeze. It's got both a frontend (`client`) and a backend (`server`), and it's fully containerized with Docker to make running it super easy.
 
